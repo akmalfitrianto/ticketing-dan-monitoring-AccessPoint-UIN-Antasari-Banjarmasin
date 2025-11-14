@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Tambah Admin')
-@section('header', 'Tambah Admin Baru')
+@section('title', 'Edit Admin')
+@section('header', 'Edit Admin')
 
 @section('content')
     <div class="max-w-3xl mx-auto">
@@ -19,7 +19,7 @@
                     </svg>
                 </li>
                 <li>
-                    <span class="text-gray-900 font-medium">Tambah Admin</span>
+                    <span class="text-gray-900 font-medium">Edit {{ $admin->name }}</span>
                 </li>
             </ol>
         </nav>
@@ -36,18 +36,18 @@
 
         <!-- Form Card -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-6">Form Admin Baru</h2>
+            <h2 class="text-lg font-semibold text-gray-900 mb-6">Edit Informasi Admin</h2>
 
-            <form method="POST" action="{{ route('admin.admins.store') }}" class="space-y-6">
+            <form method="POST" action="{{ route('admin.admins.update', $admin) }}" class="space-y-6">
                 @csrf
+                @method('PUT')
 
                 <!-- Name -->
                 <div>
                     <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
                         Nama Lengkap <span class="text-red-500">*</span>
                     </label>
-                    <input type="text" name="name" id="name" value="{{ old('name') }}" required
-                        placeholder="Contoh: Ahmad Fauzi"
+                    <input type="text" name="name" id="name" value="{{ old('name', $admin->name) }}" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
                 </div>
 
@@ -56,10 +56,8 @@
                     <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
                         Email <span class="text-red-500">*</span>
                     </label>
-                    <input type="email" name="email" id="email" value="{{ old('email') }}" required
-                        placeholder="admin@uin.ac.id"
+                    <input type="email" name="email" id="email" value="{{ old('email', $admin->email) }}" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
-                    <p class="text-xs text-gray-500 mt-1">Email akan digunakan untuk login</p>
                 </div>
 
                 <!-- Unit Kerja -->
@@ -71,7 +69,8 @@
                         class="w-full px-4 py-3 border {{ $errors->has('unit_kerja') ? 'border-red-500' : 'border-gray-300' }} rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
                         <option value="">-- Pilih Unit Kerja --</option>
                         @foreach ($unitKerjaList as $unit)
-                            <option value="{{ $unit->nama }}" {{ old('unit_kerja') == $unit->nama ? 'selected' : '' }}>
+                            <option value="{{ $unit->nama }}"
+                                {{ old('unit_kerja', $admin->unit_kerja) == $unit->nama ? 'selected' : '' }}>
                                 {{ $unit->nama }}
                             </option>
                         @endforeach
@@ -84,37 +83,56 @@
                 <!-- Password -->
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-                        Password <span class="text-red-500">*</span>
+                        Password Baru
+                        <span class="text-gray-500 font-normal">(Kosongkan jika tidak ingin mengubah)</span>
                     </label>
-                    <input type="password" name="password" id="password" required placeholder="Minimal 8 karakter"
+                    <input type="password" name="password" id="password" placeholder="Minimal 8 karakter"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
                 </div>
 
                 <!-- Password Confirmation -->
                 <div>
                     <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2">
-                        Konfirmasi Password <span class="text-red-500">*</span>
+                        Konfirmasi Password Baru
                     </label>
-                    <input type="password" name="password_confirmation" id="password_confirmation" required
-                        placeholder="Ulangi password"
+                    <input type="password" name="password_confirmation" id="password_confirmation"
+                        placeholder="Ulangi password baru"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
                 </div>
 
-                <!-- Info Box -->
-                <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <!-- Admin Stats -->
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p class="text-sm font-medium text-gray-700 mb-2">Statistik Admin:</p>
+                    <div class="grid grid-cols-2 gap-3 text-sm text-gray-600">
+                        <div>
+                            <span class="font-medium">Total Tickets:</span> {{ $admin->tickets()->count() }}
+                        </div>
+                        <div>
+                            <span class="font-medium">Open Tickets:</span>
+                            {{ $admin->tickets()->whereIn('status', ['open', 'in_progress'])->count() }}
+                        </div>
+                        <div>
+                            <span class="font-medium">Bergabung:</span> {{ $admin->created_at->format('d M Y') }}
+                        </div>
+                        <div>
+                            <span class="font-medium">Last Update:</span> {{ $admin->updated_at->diffForHumans() }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Warning Box -->
+                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <div class="flex">
-                        <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-3" fill="none" stroke="currentColor"
+                        <svg class="w-5 h-5 text-yellow-600 mt-0.5 mr-3" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                            </path>
                         </svg>
-                        <div class="text-sm text-blue-800">
-                            <p class="font-medium mb-1">Informasi:</p>
-                            <ul class="list-disc list-inside space-y-1 text-xs">
-                                <li>Admin dapat membuat dan memonitor ticket untuk unit kerjanya</li>
-                                <li>Password harus minimal 8 karakter</li>
-                                <li>Admin dapat login menggunakan email dan password ini</li>
-                            </ul>
+                        <div class="text-sm text-yellow-800">
+                            <p class="font-medium mb-1">Perhatian:</p>
+                            <p class="text-xs">Mengubah email akan mengharuskan admin login dengan email baru. Pastikan
+                                admin sudah diberitahu.</p>
                         </div>
                     </div>
                 </div>
@@ -127,7 +145,7 @@
                     </a>
                     <button type="submit"
                         class="flex-1 px-6 py-3 bg-teal-500 text-white font-medium rounded-lg hover:bg-teal-600 transition shadow-lg hover:shadow-xl">
-                        Simpan Admin
+                        Update Admin
                     </button>
                 </div>
             </form>

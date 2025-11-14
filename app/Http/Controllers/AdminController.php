@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\UnitKerja;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -21,7 +22,11 @@ class AdminController extends Controller
 
     public function create()
     {
-        return view('admin.admins.create');
+        $unitKerjaList = UnitKerja::aktif()
+            ->orderBy('nama')
+            ->get();
+
+        return view('admin.admins.create', compact('unitKerjaList'));
     }
 
     public function store(Request $request)
@@ -30,7 +35,7 @@ class AdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => ['required', 'confirmed', Password::min(8)],
-            'unit_kerja' => 'required|string|max:255',
+            'unit_kerja' => 'required|exists:unit_kerja,nama',
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
@@ -49,7 +54,11 @@ class AdminController extends Controller
             abort(404);
         }
 
-        return view('admin.admins.edit', compact('admin'));
+        $unitKerjaList = UnitKerja::aktif()
+            ->orderBy('nama')
+            ->get();
+
+        return view('admin.admins.edit', compact('admin', 'unitKerjaList'));
     }
 
     public function update(Request $request, User $admin)
@@ -63,7 +72,7 @@ class AdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $admin->id,
             'password' => ['nullable', 'confirmed', Password::min(8)],
-            'unit_kerja' => 'required|string|max:255',
+            'unit_kerja' => 'required|exists:unit_kerja,nama',
         ]);
 
         if ($request->filled('password')) {

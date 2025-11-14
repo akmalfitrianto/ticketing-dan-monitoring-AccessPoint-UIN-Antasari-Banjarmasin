@@ -17,9 +17,12 @@ class RoomController extends Controller
 
     public function create(Floor $floor)
     {
-        $floor->load('building');
+        $floor->load(['building','rooms']);
 
-        return view('admin.rooms.create', compact('floor'));
+        return view('admin.rooms.create', [
+            'floor' => $floor,
+            'existingRooms' => $floor->rooms
+        ]);
     }
 
     public function store(Request $request, Floor $floor)
@@ -48,7 +51,12 @@ class RoomController extends Controller
     {
         $room->load('floor.building');
 
-        return view('admin.rooms.edit', compact('room'));
+        $existingRooms = $room->floor->rooms()->where('id', '!=', $room->id)->get();
+
+        return view('admin.rooms.edit', [
+            'room' => $room,
+            'existingRooms' => $existingRooms
+        ]);
     }
 
     public function update(Request $request, Room $room)

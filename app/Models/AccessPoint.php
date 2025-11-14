@@ -80,4 +80,22 @@ class AccessPoint extends Model
     {
         return $query->where('status', 'maintenance');
     }
+
+    public function setPositionXAttribute($value)
+    {
+        if ($this->room) {
+            $this->attributes['position_x'] = max(0, min($value, $this->room->width));
+        } else {
+            $this->attributes['position_x'] = max(0, $value);
+        }
+    }
+
+    public function setPositionYAttribute($value)
+    {
+        if ($this->room) {
+            $this->attributes['position_y'] = max(0, min($value, $this->room->height));
+        } else {
+            $this->attributes['position_y'] = max(0, $value);
+        }
+    }
 }

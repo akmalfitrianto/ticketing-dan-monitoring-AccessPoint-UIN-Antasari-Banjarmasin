@@ -22,7 +22,11 @@ class BuildingController extends Controller
 
     public function create()
     {
-        return view('admin.buildings.create');
+        $existingBuildings = Building::all();
+
+        return view('admin.buildings.create', [
+            'existingBuildings' => $existingBuildings
+        ]);
     }
 
     public function store(Request $request)
@@ -64,7 +68,12 @@ class BuildingController extends Controller
 
     public function edit(Building $building)
     {
-        return view('admin.buildings.edit', compact('building'));
+        $existingBuildings = Building::where('id', '!=', $building->id)->get();
+
+        return view('admin.buildings.edit', [
+            'building' => $building,
+            'existingBuildings' => $existingBuildings
+        ]);
     }
 
     public function update(Request $request, Building $building)

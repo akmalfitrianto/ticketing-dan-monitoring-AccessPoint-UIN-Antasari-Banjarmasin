@@ -60,9 +60,9 @@
     <div class="bg-gradient-to-r from-teal-500 to-green-600 rounded-xl shadow-lg p-6 text-white mb-6">
         <h2 class="text-xl font-bold mb-2">{{ $room->name }}</h2>
         <div class="flex items-center space-x-6 text-sm text-teal-100">
-            <span>📍 {{ $room->floor->building->name }}</span>
-            <span>🏢 {{ $room->floor->display_name }}</span>
-            <span>📏 {{ $room->width }} x {{ $room->height }} px</span>
+            <span>{{ $room->floor->building->name }}</span>
+            <span>{{ $room->floor->display_name }}</span>
+            <span>{{ $room->width }} x {{ $room->height }} px</span>
         </div>
     </div>
 

@@ -167,49 +167,110 @@
                 </div>
 
                 <!-- Live Preview -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Live Preview</h2>
+                <div class="space-y-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Live Preview</h2>
 
-                    <div class="bg-gray-50 rounded-lg p-4 border-2 border-gray-300">
-                        <svg id="previewCanvas" viewBox="0 0 1200 600" class="w-full" style="height: 500px;">
-                            <!-- Grid -->
-                            <defs>
-                                <pattern id="previewGrid" width="50" height="50" patternUnits="userSpaceOnUse">
-                                    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e5e7eb" stroke-width="1" />
-                                </pattern>
-                            </defs>
-                            <rect width="100%" height="100%" fill="url(#previewGrid)" />
+                        <div class="bg-gray-50 rounded-lg border-2 border-gray-300 p-4" style="height: 400px;">
+                            <svg id="previewSvg" viewBox="0 0 1200 600" class="w-full h-full">
+                                <!-- Grid Background -->
+                                <defs>
+                                    <pattern id="previewGrid" width="50" height="50"
+                                        patternUnits="userSpaceOnUse">
+                                        <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e5e7eb" stroke-width="1" />
+                                    </pattern>
+                                </defs>
+                                <rect width="100%" height="100%" fill="url(#previewGrid)" />
 
-                            <!-- Building Preview with Rotation -->
-                            <g
-                                :transform="rotation > 0 ? `rotate(${rotation} ${position_x + width/2} ${position_y + height/2})` :
-                                    ''">
-                                <path id="buildingPath" :d="previewPath" :fill="color" stroke="#14b8a6"
-                                    stroke-width="2" />
-                            </g>
+                                <!-- Existing Buildings -->
+                                @foreach ($existingBuildings as $existingBuilding)
+                                    <g opacity="0.4">
+                                        @if ($existingBuilding->rotation > 0)
+                                            <g
+                                                transform="rotate({{ $existingBuilding->rotation }} {{ $existingBuilding->position_x + $existingBuilding->width / 2 }} {{ $existingBuilding->position_y + $existingBuilding->height / 2 }})">
+                                                <path d="{{ $existingBuilding->generateSvgPath() }}" fill="#e0e7eb"
+                                                    stroke="#9ca3af" stroke-width="2" stroke-dasharray="8,4" />
+                                            </g>
+                                        @else
+                                            <path d="{{ $existingBuilding->generateSvgPath() }}" fill="#e0e7eb"
+                                                stroke="#9ca3af" stroke-width="2" stroke-dasharray="8,4" />
+                                        @endif
 
-                            <!-- Label (tidak ikut rotate) -->
-                            <text :x="position_x + (width / 2)" :y="position_y + (height / 2)" text-anchor="middle"
-                                class="text-sm font-bold" fill="#0f766e" x-text="name || 'Gedung Baru'">
-                            </text>
-                        </svg>
-                    </div>
+                                        <text x="{{ $existingBuilding->position_x + $existingBuilding->width / 2 }}"
+                                            y="{{ $existingBuilding->position_y + $existingBuilding->height / 2 }}"
+                                            text-anchor="middle" class="text-xs" fill="#6b7280" opacity="0.7">
+                                            {{ $existingBuilding->name }}
+                                        </text>
+                                    </g>
+                                @endforeach
 
-                    <!-- Info -->
-                    <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                        <p class="font-medium mb-2">Preview Info:</p>
-                        <div class="space-y-1 text-xs">
-                            <p><strong>Rotation:</strong> <span x-text="rotation + '°'"></span>
-                                <span
-                                    x-text="rotation === 0 ? '(Normal)' : rotation === 90 ? '(Ke Kanan)' : rotation === 180 ? '(Terbalik)' : '(Ke Kiri)'"></span>
-                            </p>
-                            <p><strong>Tips:</strong> Sesuaikan posisi X dan Y untuk menempatkan gedung di denah</p>
-                            <p><strong>Canvas size:</strong> 1200x600 px</p>
+                                <!--  New Building -->
+                                <g id="buildingPreview">
+                                    <g id="buildingShape"
+                                        :transform="rotation > 0 ?
+                                            `rotate(${rotation} ${position_x + width/2} ${position_y + height/2})` : ''">
+                                        <path id="buildingPath" :d="previewPath" :fill="color"
+                                            stroke="#14b8a6" stroke-width="3" />
+
+                                        <!-- Glow effect -->
+                                        <path :d="previewPath" fill="none" stroke="#14b8a6" stroke-width="6"
+                                            opacity="0.3" />
+                                    </g>
+
+                                    <!-- Label (tidak ikut rotate) -->
+                                    <text id="buildingLabel" :x="position_x + width / 2" :y="position_y + height / 2"
+                                        text-anchor="middle" class="text-sm font-bold pointer-events-none" fill="#0f766e"
+                                        x-text="name || 'Gedung Baru'">
+                                    </text>
+                                </g>
+
+                            </svg>
+                        </div>
+
+                        <!-- Context Info -->
+                        <div class="mt-4 space-y-3">
+                            <!-- Statistics -->
+                            <div class="p-3 bg-gradient-to-r from-gray-50 to-teal-50 border border-gray-200 rounded-lg">
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div class="flex items-center">
+                                        <span class="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                        <span class="text-gray-700">Gedung Existing:
+                                            <strong>{{ $existingBuildings->count() }}</strong></span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="w-2 h-2 bg-teal-500 rounded-full mr-2"></span>
+                                        <span class="text-gray-700">Gedung Baru: <strong>1</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Rotation Info -->
+                            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p class="text-xs text-blue-800">
+                                    <strong>Preview Rotation:</strong><br>
+                                    <span
+                                        x-text="rotation + '° - ' + (rotation === 0 ? 'Normal' : rotation === 90 ? 'Ke Kanan' : rotation === 180 ? 'Terbalik' : 'Ke Kiri')"></span>
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Info -->
+                <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                    <p class="font-medium mb-2">Preview Info:</p>
+                    <div class="space-y-1 text-xs">
+                        <p><strong>Rotation:</strong> <span x-text="rotation + '°'"></span>
+                            <span
+                                x-text="rotation === 0 ? '(Normal)' : rotation === 90 ? '(Ke Kanan)' : rotation === 180 ? '(Terbalik)' : '(Ke Kiri)'"></span>
+                        </p>
+                        <p><strong>Tips:</strong> Sesuaikan posisi X dan Y untuk menempatkan gedung di denah</p>
+                        <p><strong>Canvas size:</strong> 1200x600 px</p>
+                    </div>
+                </div>
             </div>
-        </form>
+    </div>
+    </form>
     </div>
 
     <script>
