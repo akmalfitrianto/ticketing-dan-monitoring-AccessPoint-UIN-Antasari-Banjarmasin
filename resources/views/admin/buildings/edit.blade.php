@@ -4,6 +4,9 @@
 @section('header', 'Edit Gedung')
 
 @section('content')
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
     <div class="max-w-6xl mx-auto">
         <!-- Breadcrumb -->
         <nav class="flex mb-6" aria-label="Breadcrumb">
@@ -178,9 +181,19 @@
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-6">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-semibold text-gray-900">Live Preview</h2>
-                            <span class="text-xs px-3 py-1 bg-teal-100 text-teal-700 rounded-full font-medium">
-                                Klik dan Drag untuk memindahkan
-                            </span>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs px-3 py-1 bg-teal-100 text-teal-700 rounded-full font-medium">
+                                    Drag untuk memindahkan
+                                </span>
+                                <button type="button" @click="toggleFullscreen()"
+                                    class="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Maximize Preview">
+                                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="bg-gray-50 rounded-lg border-2 border-gray-300 p-4 relative" style="height: 400px;">
@@ -266,20 +279,93 @@
                                 </div>
                             </div>
 
-                            <!-- Position & Stats Info -->
-                            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <p class="text-xs text-blue-800 mb-2">
-                                    <strong>Position:</strong><br>
-                                    X: <span x-text="position_x"></span> px,
-                                    Y: <span x-text="position_y"></span> px
-                                </p>
-                                <p class="text-xs text-blue-800">
-                                    <strong>Statistik:</strong><br>
-                                    Rotation: <span x-text="rotation + '°'"></span> •
-                                    Lantai: {{ $building->total_floors }} •
-                                    Ruangan: {{ $building->total_rooms }} •
-                                    AP: {{ $building->total_access_points }}
-                                </p>
+                            <!-- Fullscreen Modal -->
+                            <div x-show="isFullscreen" x-cloak
+                                class="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4"
+                                @click.self="toggleFullscreen()">
+                                <div
+                                    class="bg-white rounded-xl shadow-2xl w-full h-full max-w-[95vw] max-h-[95vh] flex flex-col">
+                                    <!-- Header -->
+                                    <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                                        <h3 class="text-lg font-semibold text-gray-900">Live Preview - Fullscreen Mode</h3>
+                                        <button type="button" @click="toggleFullscreen()"
+                                            class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                            title="Close Fullscreen">
+                                            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    <!-- Canvas Fullscreen -->
+                                    <div class="flex-1 p-6 overflow-hidden">
+                                        <div class="bg-gray-50 rounded-lg border-2 border-gray-300 h-full">
+                                            <svg id="previewSvgFullscreen" viewBox="0 0 1800 1200" class="w-full h-full"
+                                                @mousedown="startDrag($event)" @mousemove="drag($event)"
+                                                @mouseup="stopDrag()" @mouseleave="stopDrag()" style="cursor: grab;">
+                                                <defs>
+                                                    <pattern id="previewGridFull" width="50" height="50"
+                                                        patternUnits="userSpaceOnUse">
+                                                        <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e5e7eb"
+                                                            stroke-width="1" />
+                                                    </pattern>
+                                                </defs>
+
+                                                <image href="{{ asset('images/background-map.png') }}" x="0" y="0"
+                                                    width="1800" height="1200" preserveAspectRatio="xMidYMid slice"
+                                                    opacity="0.5" />
+
+                                                @foreach ($existingBuildings as $existingBuilding)
+                                                    <g opacity="0.5">
+                                                        @if ($existingBuilding->rotation > 0)
+                                                            <g
+                                                                transform="rotate({{ $existingBuilding->rotation }} {{ $existingBuilding->position_x + $existingBuilding->width / 2 }} {{ $existingBuilding->position_y + $existingBuilding->height / 2 }})">
+                                                                <path d="{{ $existingBuilding->generateSvgPath() }}"
+                                                                    fill="{{ $existingBuilding->color }}"
+                                                                    stroke="#000000" stroke-width="2"
+                                                                    stroke-dasharray="8,4" />
+                                                            </g>
+                                                        @else
+                                                            <path d="{{ $existingBuilding->generateSvgPath() }}"
+                                                                fill="{{ $existingBuilding->color }}" stroke="#000000"
+                                                                stroke-width="2" stroke-dasharray="8,4" />
+                                                        @endif
+
+                                                        <text
+                                                            x="{{ $existingBuilding->position_x + $existingBuilding->width / 2 }}"
+                                                            y="{{ $existingBuilding->position_y + $existingBuilding->height / 2 }}"
+                                                            text-anchor="middle" class="text-xs" fill="#000000"
+                                                            opacity="0.7" style="pointer-events: none;">
+                                                            {{ $existingBuilding->name }}
+                                                        </text>
+                                                    </g>
+                                                @endforeach
+
+                                                <g id="buildingPreviewFull"
+                                                    :style="isDragging ? 'cursor: grabbing;' : 'cursor: grab;'">
+                                                    <g id="buildingShapeFull"
+                                                        :transform="rotation > 0 ?
+                                                            `rotate(${rotation} ${position_x + width/2} ${position_y + height/2})` :
+                                                            ''">
+                                                        <path :d="previewPath" :fill="color"
+                                                            stroke="#14b8a6" stroke-width="3" />
+
+                                                        <path :d="previewPath" fill="none" stroke="#14b8a6"
+                                                            stroke-width="6" opacity="0.3" />
+                                                    </g>
+
+                                                    <text :x="position_x + width / 2" :y="position_y + height / 2"
+                                                        text-anchor="middle" class="text-sm font-bold" fill="#0f766e"
+                                                        stroke="white" stroke-width="3" paint-order="stroke"
+                                                        style="pointer-events: none;" x-text="name || 'Gedung Baru'">
+                                                    </text>
+                                                </g>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -309,6 +395,15 @@
 
                 init() {
                     this.updatePreview();
+                },
+
+                toggleFullscreen(){
+                    this.isFullscreen = !this.isFullscreen;
+                    if (this.isFullscreen) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
                 },
 
                 updatePreview() {
@@ -342,7 +437,8 @@
                 },
 
                 startDrag(event) {
-                    const svg = document.getElementById('previewSvg');
+                    const svg = event.target.closest('svg');
+                    if (!svg) return;
 
                     const pt = svg.createSVGPoint();
                     pt.x = event.clientX;
@@ -367,7 +463,8 @@
                 drag(event) {
                     if (!this.isDragging) return;
 
-                    const svg = document.getElementById('previewSvg');
+                    const svg = event.target.closest('svg');
+                    if (!svg) return;
 
                     const pt = svg.createSVGPoint();
                     pt.x = event.clientX;

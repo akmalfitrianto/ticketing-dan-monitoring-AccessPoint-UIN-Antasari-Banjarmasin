@@ -263,18 +263,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Position Info -->
-                            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <p class="text-xs text-blue-800">
-                                    <strong>Position:</strong><br>
-                                    X: <span x-text="position_x"></span> px,
-                                    Y: <span x-text="position_y"></span> px<br>
-                                    <strong>Size:</strong>
-                                    <span x-text="width"></span>x<span x-text="height"></span> px
-                                </p>
-                            </div>
-
                             <!-- Room Stats -->
                             <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
                                 <p class="text-sm font-medium text-gray-700 mb-2">Statistik Ruangan:</p>
