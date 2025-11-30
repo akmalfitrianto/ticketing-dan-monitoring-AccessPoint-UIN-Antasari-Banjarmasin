@@ -11,6 +11,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\CampusMapController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Mail;
 use App\Models\Building;
 
 // Guest routes
@@ -83,4 +84,34 @@ Route::middleware('auth')->group(function () {
         // Admin Management
         Route::resource('admins', AdminController::class)->except(['show']);
     });
+
+    Route::get('/test-email', function () {
+        $ticket = \App\Models\Ticket::with([
+            'accessPoint.room.floor.building',
+            'admin'
+        ])->latest()->first();
+
+        if (!$ticket) {
+            return 'Tidak ada ticket! Buat ticket dulu untuk testing.';
+        }
+
+        try {
+            Mail::to('test@example.com')->send(new \App\Mail\TicketCreatedMail($ticket));
+            return 'Email berhasil dikirim! Cek inbox di Mailtrap.';
+        } catch (\Exception $e) {
+            return 'Error: ' . $e->getMessage();
+        }
+    });
+
+    Route::get('/test-real-email', function () {
+        try {
+            Mail::raw('Test email real!', function ($message) {
+                $message->to('fitriantoakmal@gmail.com')
+                    ->subject('Test dari Laravel');
+            });
+            return 'Email terkirim! Cek inbox Gmail Anda.';
+        } catch (\Exception $e) {
+            return 'Error: ' . $e->getMessage();
+        }
+    })->middleware('auth');
 });

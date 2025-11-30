@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\TicketCreatedMail;
 use App\Models\Ticket;
 use App\Models\AccessPoint;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class TicketController extends Controller
 {
@@ -68,10 +71,34 @@ class TicketController extends Controller
         $accessPoint = AccessPoint::find($request->access_point_id);
         $accessPoint->update(['status' => 'maintenance']);
 
+        // load relationships for notification
+        $ticket->load(['accessPoint.room.floor.building', 'admin']);
+
         // Create notification for all superadmins
         $superadmins = User::where('role', 'superadmin')->get();
         foreach ($superadmins as $superadmin) {
             Notification::createForTicket($ticket, 'new_ticket', $superadmin);
+        }
+
+        try {
+            foreach ($superadmins as $superadmin) {
+                Mail::to($superadmin->email)->send(new TicketCreatedMail($ticket));
+            }
+
+            Log::info('Email notification sent for ticket', [
+                'ticket_id' => $ticket->id,
+                'ticket_number' => $ticket->ticket_number,
+                'recipients' => $superadmins->pluck('email')->toArray()
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send email notification', [
+                'ticket_id' => $ticket->id,
+                'ticket_number' => $ticket->ticket_number,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            session()->flash('warning', 'Ticket berhasil dibuat tapi notifikasi email gagal dikirim');
         }
 
         return redirect()->route('tickets.show', $ticket)
@@ -122,7 +149,26 @@ class TicketController extends Controller
 
         // Notify ticket creator about status change
         if ($oldStatus !== $request->status) {
+            // in app notification
             Notification::createForTicket($ticket, 'status_changed', $ticket->admin);
+
+            // email notification
+            try {
+                $ticket->load(['accessPoint.room.floor.building', 'admin', 'resolver']);
+                Mail::to($ticket->admin->email)->send(new \App\Mail\TicketStatusUpdatedMail($ticket, $oldStatus));
+
+                Log::info('Status update email sent', [
+                    'ticket_id' => $ticket->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $ticket->status,
+                    'recipient' => $ticket->admin->email
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to send status update email', [
+                    'ticket_id' => $ticket->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
 
         return redirect()->back()
@@ -134,6 +180,8 @@ class TicketController extends Controller
         $request->validate([
             'resolution_notes' => 'required|string',
         ]);
+
+        $oldStatus = $ticket->status;
 
         $ticket->update([
             'status' => 'resolved',
@@ -147,7 +195,24 @@ class TicketController extends Controller
             $accessPoint->update(['status' => 'active']);
         }
 
+        // in app notificatiin
         Notification::createForTicket($ticket, 'ticket_resolved', $ticket->admin);
+
+        // email notification
+        try {
+            $ticket->load(['accessPoint.room.floor.building', 'admin', 'resolver']);
+            Mail::to($ticket->admin->email)->send(new \App\Mail\TicketStatusUpdatedMail($ticket, $oldStatus));
+
+            Log::info('Ticket resolved email sent', [
+                'ticket_id' => $ticket->id,
+                'recipient' => $ticket->admin->email
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send resolved email', [
+                'ticket_id' => $ticket->id,
+                'error' => $e->getMessage()
+            ]);
+        }
 
         return redirect()->back()
             ->with('success', 'Ticket berhasil diselesaikan.');
@@ -160,12 +225,31 @@ class TicketController extends Controller
             'closed_at' => now(),
         ]);
 
+        $oldStatus = $ticket->status;
+
         $accessPoint = $ticket->accessPoint;
         if (!$accessPoint->hasOpenTicket()) {
             $accessPoint->update(['status' => 'active']);
         }
 
+        // in app notification
         Notification::createForTicket($ticket, 'ticket_closed', $ticket->admin);
+
+        // email notification
+        try {
+            $ticket->load(['accessPoint.room.floor.building', 'admin', 'resolver']);
+            Mail::to($ticket->admin->email)->send(new \App\Mail\TicketStatusUpdatedMail($ticket, $oldStatus));
+
+            Log::info('Ticket closed email sent', [
+                'ticket_id' => $ticket->id,
+                'recipient' => $ticket->admin->email
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send closed email', [
+                'ticket_id' => $ticket->id,
+                'error' => $e->getMessage()
+            ]);
+        }
 
         return redirect()->back()
             ->with('success', 'Ticket berhasil ditutup.');
