@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\TicketCreatedMail;
 use App\Models\Ticket;
 use App\Models\AccessPoint;
 use App\Models\Notification;
 use App\Models\User;
-use Illuminate\Http\Request;
+use App\Mail\TicketCreatedMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
 class TicketController extends Controller
 {
@@ -71,7 +71,7 @@ class TicketController extends Controller
         $accessPoint = AccessPoint::find($request->access_point_id);
         $accessPoint->update(['status' => 'maintenance']);
 
-        // load relationships for notification
+        // Load relationships for notification
         $ticket->load(['accessPoint.room.floor.building', 'admin']);
 
         // Create notification for all superadmins
@@ -80,6 +80,7 @@ class TicketController extends Controller
             Notification::createForTicket($ticket, 'new_ticket', $superadmin);
         }
 
+        //  SEND EMAIL NOTIFICATION TO SUPERADMINS
         try {
             foreach ($superadmins as $superadmin) {
                 Mail::to($superadmin->email)->send(new TicketCreatedMail($ticket));
@@ -91,6 +92,7 @@ class TicketController extends Controller
                 'recipients' => $superadmins->pluck('email')->toArray()
             ]);
         } catch (\Exception $e) {
+            // Log error tapi jangan fail ticket creation
             Log::error('Failed to send email notification', [
                 'ticket_id' => $ticket->id,
                 'ticket_number' => $ticket->ticket_number,
@@ -98,7 +100,8 @@ class TicketController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            session()->flash('warning', 'Ticket berhasil dibuat tapi notifikasi email gagal dikirim');
+            // Opsional: Kirim flash message ke user
+            session()->flash('warning', 'Ticket berhasil dibuat, tapi notifikasi email gagal dikirim.');
         }
 
         return redirect()->route('tickets.show', $ticket)
@@ -147,12 +150,32 @@ class TicketController extends Controller
 
         $ticket->save();
 
+        if (in_array($request->status, ['resolved', 'closed'])) {
+            $accessPoint = $ticket->accessPoint;
+
+            if (!$accessPoint->hasOpenTicket()) {
+                $accessPoint->update(['status' => 'active']);
+
+                Log::info('Access Point status updated to active via updateStatus', [
+                    'ap_id' => $accessPoint->id,
+                    'ap_name' => $accessPoint->name,
+                    'ticket_id' => $ticket->id,
+                    'new_ticket_status' => $request->status
+                ]);
+            } else {
+                Log::info('Access Point still has open tickets via updateStatus', [
+                    'ap_id' => $accessPoint->id,
+                    'open_tickets_count' => $accessPoint->openTickets()->count()
+                ]);
+            }
+        }
+
         // Notify ticket creator about status change
         if ($oldStatus !== $request->status) {
-            // in app notification
+            // In-app notification
             Notification::createForTicket($ticket, 'status_changed', $ticket->admin);
 
-            // email notification
+            //  EMAIL NOTIFICATION
             try {
                 $ticket->load(['accessPoint.room.floor.building', 'admin', 'resolver']);
                 Mail::to($ticket->admin->email)->send(new \App\Mail\TicketStatusUpdatedMail($ticket, $oldStatus));
@@ -190,15 +213,27 @@ class TicketController extends Controller
             'resolution_notes' => $request->resolution_notes,
         ]);
 
-        $accessPoint = $ticket->accessPoint;
+        $accessPoint = AccessPoint::find($ticket->access_point_id);
+
         if (!$accessPoint->hasOpenTicket()) {
             $accessPoint->update(['status' => 'active']);
+
+            Log::info('Access Point status updated to active', [
+                'ap_id' => $accessPoint->id,
+                'ap_name' => $accessPoint->name,
+                'ticket_id' => $ticket->id
+            ]);
+        } else {
+            Log::info('Access Point still has open tickets', [
+                'ap_id' => $accessPoint->id,
+                'open_tickets_count' => $accessPoint->openTickets()->count()
+            ]);
         }
 
-        // in app notificatiin
+        // In-app notification
         Notification::createForTicket($ticket, 'ticket_resolved', $ticket->admin);
 
-        // email notification
+        //  EMAIL NOTIFICATION
         try {
             $ticket->load(['accessPoint.room.floor.building', 'admin', 'resolver']);
             Mail::to($ticket->admin->email)->send(new \App\Mail\TicketStatusUpdatedMail($ticket, $oldStatus));
@@ -220,16 +255,28 @@ class TicketController extends Controller
 
     public function close(Ticket $ticket)
     {
+        $oldStatus = $ticket->status;
+
         $ticket->update([
             'status' => 'closed',
             'closed_at' => now(),
         ]);
 
-        $oldStatus = $ticket->status;
+        $accessPoint = AccessPoint::find($ticket->access_point_id);
 
-        $accessPoint = $ticket->accessPoint;
         if (!$accessPoint->hasOpenTicket()) {
             $accessPoint->update(['status' => 'active']);
+
+            Log::info('Access Point status updated to active', [
+                'ap_id' => $accessPoint->id,
+                'ap_name' => $accessPoint->name,
+                'ticket_id' => $ticket->id
+            ]);
+        } else {
+            Log::info('Access Point still has open tickets', [
+                'ap_id' => $accessPoint->id,
+                'open_tickets_count' => $accessPoint->openTickets()->count()
+            ]);
         }
 
         // in app notification
