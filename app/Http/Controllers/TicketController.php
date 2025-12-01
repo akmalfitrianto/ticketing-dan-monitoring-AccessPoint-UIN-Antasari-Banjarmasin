@@ -7,6 +7,7 @@ use App\Models\AccessPoint;
 use App\Models\Notification;
 use App\Models\User;
 use App\Mail\TicketCreatedMail;
+use App\Notifications\TelegramTicketNotification;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
@@ -104,6 +105,21 @@ class TicketController extends Controller
             session()->flash('warning', 'Ticket berhasil dibuat, tapi notifikasi email gagal dikirim.');
         }
 
+        try {
+            $telegramNotification = new TelegramTicketNotification($ticket, 'created');
+            $telegramNotification->toTelegram(null);
+
+            Log::info('Telegram notification sent for new ticket', [
+                'ticket_id' => $ticket->id,
+                'ticket_number' => $ticket->ticket_number
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send Telegram notification', [
+                'ticket_id' => $ticket->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         return redirect()->route('tickets.show', $ticket)
             ->with('success', 'Ticket berhasil dibuat dengan nomor: ' . $ticket->ticket_number);
     }
@@ -192,6 +208,22 @@ class TicketController extends Controller
                     'error' => $e->getMessage()
                 ]);
             }
+
+            try {
+                $telegramNotification = new TelegramTicketNotification($ticket, 'status_changed', $oldStatus);
+                $telegramNotification->toTelegram(null);
+
+                Log::info('Telegram status update sent', [
+                    'ticket_id' => $ticket->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $ticket->status
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to send Telegram status update', [
+                    'ticket_id' => $ticket->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
 
         return redirect()->back()
@@ -249,6 +281,22 @@ class TicketController extends Controller
             ]);
         }
 
+        try {
+            $telegramNotification = new TelegramTicketNotification($ticket, 'status_changed', $oldStatus);
+            $telegramNotification->toTelegram(null);
+
+            Log::info('Telegram status update sent', [
+                'ticket_id' => $ticket->id,
+                'old_status' => $oldStatus,
+                'new_status' => $ticket->status
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send Telegram status update', [
+                'ticket_id' => $ticket->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         return redirect()->back()
             ->with('success', 'Ticket berhasil diselesaikan.');
     }
@@ -293,6 +341,22 @@ class TicketController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send closed email', [
+                'ticket_id' => $ticket->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        try {
+            $telegramNotification = new TelegramTicketNotification($ticket, 'status_changed', $oldStatus);
+            $telegramNotification->toTelegram(null);
+
+            Log::info('Telegram status update sent', [
+                'ticket_id' => $ticket->id,
+                'old_status' => $oldStatus,
+                'new_status' => $ticket->status
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send Telegram status update', [
                 'ticket_id' => $ticket->id,
                 'error' => $e->getMessage()
             ]);
