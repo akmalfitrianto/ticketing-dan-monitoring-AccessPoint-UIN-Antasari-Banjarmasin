@@ -16,7 +16,7 @@ class TicketController extends Controller
 {
     public function index()
     {
-        // Superadmin only
+
         if (!auth()->user()->isSuperAdmin()) {
             return redirect()->route('tickets.my');
         }
@@ -60,18 +60,11 @@ class TicketController extends Controller
         ]);
 
         $accessPoint = AccessPoint::with('room.floor.building')->findOrFail($request->access_point_id);
-
         $building = $accessPoint->room->floor->building;
 
         if (!auth()->user()->hasAccessToBuilding($building->id)) {
             return redirect()->back()
                 ->withErrors(['access_point_id' => 'Anda tidak memiliki akses untuk membuat tiket digedung ini.'])
-                ->withInput();
-        }
-
-        if ($accessPoint->status === 'maintenance') {
-            return redirect()->back()
-                ->withErrors(['access_point_id' => 'Access Point ini sedang dalam maintenance. Tidak dapat membuat ticket baru.'])
                 ->withInput();
         }
 
@@ -84,63 +77,40 @@ class TicketController extends Controller
         ]);
 
         $accessPoint = AccessPoint::find($request->access_point_id);
-        $accessPoint->update(['status' => 'maintenance']);
+        $accessPoint->update(['status' => 'offline']);
 
-        // Load relationships for notification
         $ticket->load(['accessPoint.room.floor.building', 'admin']);
 
-        // Create notification for all superadmins
         $superadmins = User::where('role', 'superadmin')->get();
         foreach ($superadmins as $superadmin) {
             Notification::createForTicket($ticket, 'new_ticket', $superadmin);
         }
 
-        //  SEND EMAIL NOTIFICATION TO SUPERADMINS
         try {
             foreach ($superadmins as $superadmin) {
                 Mail::to($superadmin->email)->send(new TicketCreatedMail($ticket));
             }
-
-            Log::info('Email notification sent for ticket', [
-                'ticket_id' => $ticket->id,
-                'ticket_number' => $ticket->ticket_number,
-                'recipients' => $superadmins->pluck('email')->toArray()
-            ]);
         } catch (\Exception $e) {
-            // Log error tapi jangan fail ticket creation
             Log::error('Failed to send email notification', [
                 'ticket_id' => $ticket->id,
-                'ticket_number' => $ticket->ticket_number,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error' => $e->getMessage()
             ]);
-
-            // Opsional: Kirim flash message ke user
             session()->flash('warning', 'Ticket berhasil dibuat, tapi notifikasi email gagal dikirim.');
         }
 
         try {
             $telegramNotification = new TelegramTicketNotification($ticket, 'created');
             $telegramNotification->toTelegram(null);
-
-            Log::info('Telegram notification sent for new ticket', [
-                'ticket_id' => $ticket->id,
-                'ticket_number' => $ticket->ticket_number
-            ]);
         } catch (\Exception $e) {
-            Log::error('Failed to send Telegram notification', [
-                'ticket_id' => $ticket->id,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Failed to send Telegram notification', ['error' => $e->getMessage()]);
         }
 
         return redirect()->route('tickets.show', $ticket)
-            ->with('success', 'Ticket berhasil dibuat dengan nomor: ' . $ticket->ticket_number);
+            ->with('success', 'Ticket berhasil dibuat. Status AP berubah menjadi Offline.');
     }
 
     public function show(Ticket $ticket)
     {
-        // Check access
         if (!auth()->user()->isSuperAdmin() && $ticket->admin_id !== auth()->id()) {
             abort(403, 'Unauthorized access to this ticket.');
         }
@@ -152,7 +122,7 @@ class TicketController extends Controller
 
     public function updateStatus(Request $request, Ticket $ticket)
     {
-        // Superadmin only
+
         if (!auth()->user()->isSuperAdmin()) {
             abort(403);
         }
@@ -180,63 +150,45 @@ class TicketController extends Controller
 
         $ticket->save();
 
-        if (in_array($request->status, ['resolved', 'closed'])) {
-            $accessPoint = $ticket->accessPoint;
+        $accessPoint = $ticket->accessPoint;
+
+        if ($request->status === 'in_progress') {
+
+            $accessPoint->update(['status' => 'maintenance']);
+
+            Log::info('Access Point set to Maintenance because ticket is In Progress', ['ap_id' => $accessPoint->id]);
+        } elseif ($request->status === 'open') {
+
+            $accessPoint->update(['status' => 'offline']);
+
+        } elseif (in_array($request->status, ['resolved', 'closed'])) {
 
             if (!$accessPoint->hasOpenTicket()) {
                 $accessPoint->update(['status' => 'active']);
 
                 Log::info('Access Point status updated to active via updateStatus', [
                     'ap_id' => $accessPoint->id,
-                    'ap_name' => $accessPoint->name,
-                    'ticket_id' => $ticket->id,
                     'new_ticket_status' => $request->status
-                ]);
-            } else {
-                Log::info('Access Point still has open tickets via updateStatus', [
-                    'ap_id' => $accessPoint->id,
-                    'open_tickets_count' => $accessPoint->openTickets()->count()
                 ]);
             }
         }
 
-        // Notify ticket creator about status change
+        
         if ($oldStatus !== $request->status) {
-            // In-app notification
             Notification::createForTicket($ticket, 'status_changed', $ticket->admin);
 
-            //  EMAIL NOTIFICATION
             try {
                 $ticket->load(['accessPoint.room.floor.building', 'admin', 'resolver']);
                 Mail::to($ticket->admin->email)->send(new \App\Mail\TicketStatusUpdatedMail($ticket, $oldStatus));
-
-                Log::info('Status update email sent', [
-                    'ticket_id' => $ticket->id,
-                    'old_status' => $oldStatus,
-                    'new_status' => $ticket->status,
-                    'recipient' => $ticket->admin->email
-                ]);
             } catch (\Exception $e) {
-                Log::error('Failed to send status update email', [
-                    'ticket_id' => $ticket->id,
-                    'error' => $e->getMessage()
-                ]);
+                Log::error('Failed to send status update email', ['error' => $e->getMessage()]);
             }
 
             try {
                 $telegramNotification = new TelegramTicketNotification($ticket, 'status_changed', $oldStatus);
                 $telegramNotification->toTelegram(null);
-
-                Log::info('Telegram status update sent', [
-                    'ticket_id' => $ticket->id,
-                    'old_status' => $oldStatus,
-                    'new_status' => $ticket->status
-                ]);
             } catch (\Exception $e) {
-                Log::error('Failed to send Telegram status update', [
-                    'ticket_id' => $ticket->id,
-                    'error' => $e->getMessage()
-                ]);
+                Log::error('Failed to send Telegram status update', ['error' => $e->getMessage()]);
             }
         }
 
@@ -262,57 +214,29 @@ class TicketController extends Controller
         $accessPoint = AccessPoint::find($ticket->access_point_id);
 
         if (!$accessPoint->hasOpenTicket()) {
-            $accessPoint->update(['status' => 'active']);
+            $accessPoint->update(['status' => 'active']); 
 
-            Log::info('Access Point status updated to active', [
-                'ap_id' => $accessPoint->id,
-                'ap_name' => $accessPoint->name,
-                'ticket_id' => $ticket->id
-            ]);
-        } else {
-            Log::info('Access Point still has open tickets', [
-                'ap_id' => $accessPoint->id,
-                'open_tickets_count' => $accessPoint->openTickets()->count()
-            ]);
+            Log::info('Access Point status updated to active via resolve', ['ap_id' => $accessPoint->id]);
         }
 
-        // In-app notification
+        // Notifications
         Notification::createForTicket($ticket, 'ticket_resolved', $ticket->admin);
 
-        //  EMAIL NOTIFICATION
         try {
             $ticket->load(['accessPoint.room.floor.building', 'admin', 'resolver']);
             Mail::to($ticket->admin->email)->send(new \App\Mail\TicketStatusUpdatedMail($ticket, $oldStatus));
-
-            Log::info('Ticket resolved email sent', [
-                'ticket_id' => $ticket->id,
-                'recipient' => $ticket->admin->email
-            ]);
         } catch (\Exception $e) {
-            Log::error('Failed to send resolved email', [
-                'ticket_id' => $ticket->id,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Failed to send resolved email', ['error' => $e->getMessage()]);
         }
 
         try {
             $telegramNotification = new TelegramTicketNotification($ticket, 'status_changed', $oldStatus);
             $telegramNotification->toTelegram(null);
-
-            Log::info('Telegram status update sent', [
-                'ticket_id' => $ticket->id,
-                'old_status' => $oldStatus,
-                'new_status' => $ticket->status
-            ]);
         } catch (\Exception $e) {
-            Log::error('Failed to send Telegram status update', [
-                'ticket_id' => $ticket->id,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Failed to send Telegram status update', ['error' => $e->getMessage()]);
         }
 
-        return redirect()->back()
-            ->with('success', 'Ticket berhasil diselesaikan.');
+        return redirect()->back()->with('success', 'Ticket berhasil diselesaikan.');
     }
 
     public function close(Ticket $ticket)
@@ -329,54 +253,26 @@ class TicketController extends Controller
         if (!$accessPoint->hasOpenTicket()) {
             $accessPoint->update(['status' => 'active']);
 
-            Log::info('Access Point status updated to active', [
-                'ap_id' => $accessPoint->id,
-                'ap_name' => $accessPoint->name,
-                'ticket_id' => $ticket->id
-            ]);
-        } else {
-            Log::info('Access Point still has open tickets', [
-                'ap_id' => $accessPoint->id,
-                'open_tickets_count' => $accessPoint->openTickets()->count()
-            ]);
+            Log::info('Access Point status updated to active via close', ['ap_id' => $accessPoint->id]);
         }
 
-        // in app notification
+        // Notifications
         Notification::createForTicket($ticket, 'ticket_closed', $ticket->admin);
 
-        // email notification
         try {
             $ticket->load(['accessPoint.room.floor.building', 'admin', 'resolver']);
             Mail::to($ticket->admin->email)->send(new \App\Mail\TicketStatusUpdatedMail($ticket, $oldStatus));
-
-            Log::info('Ticket closed email sent', [
-                'ticket_id' => $ticket->id,
-                'recipient' => $ticket->admin->email
-            ]);
         } catch (\Exception $e) {
-            Log::error('Failed to send closed email', [
-                'ticket_id' => $ticket->id,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Failed to send closed email', ['error' => $e->getMessage()]);
         }
 
         try {
             $telegramNotification = new TelegramTicketNotification($ticket, 'status_changed', $oldStatus);
             $telegramNotification->toTelegram(null);
-
-            Log::info('Telegram status update sent', [
-                'ticket_id' => $ticket->id,
-                'old_status' => $oldStatus,
-                'new_status' => $ticket->status
-            ]);
         } catch (\Exception $e) {
-            Log::error('Failed to send Telegram status update', [
-                'ticket_id' => $ticket->id,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Failed to send Telegram status update', ['error' => $e->getMessage()]);
         }
 
-        return redirect()->back()
-            ->with('success', 'Ticket berhasil ditutup.');
+        return redirect()->back()->with('success', 'Ticket berhasil ditutup.');
     }
 }
