@@ -1,11 +1,11 @@
-# Monitoring dan Ticketing Access Point UIN Antasari Banjarmasin
+# MAHARAGU
 
 ![Laravel](https://img.shields.io/badge/Laravel-12.x-red)
 ![PHP](https://img.shields.io/badge/PHP-8.2-blue)
 ![MySQL](https://img.shields.io/badge/Database-MySQL-orange)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3.x-38bdf8)
 
-**Sistem Monitoring dan Ticketing Access Point** adalah aplikasi berbasis web yang dirancang khusus untuk **UIN Antasari Banjarmasin**. Aplikasi ini berfungsi untuk memetakan, memantau, dan mengelola inventaris jaringan (Access Point) secara visual.
+**MAHARAGU (Monitoring Access Point & Handling Rangkaian Gangguan Umum)** adalah aplikasi berbasis web yang dirancang khusus untuk **UIN Antasari Banjarmasin**. Aplikasi ini berfungsi untuk memetakan, memantau, dan mengelola inventaris jaringan (Access Point) secara visual.
 
 Aplikasi ini mengintegrasikan sistem pelaporan gangguan (*ticketing*) dengan visualisasi denah kampus interaktif, memudahkan tim IT dalam mendeteksi dan menangani lokasi gangguan jaringan.
 

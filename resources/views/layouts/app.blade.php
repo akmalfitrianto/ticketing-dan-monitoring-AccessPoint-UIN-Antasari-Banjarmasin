@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') - Monitoring & Ticketing System</title>
+    <title>@yield('title', 'Dashboard') - Monitoring Access Point & Rangkaian Gangguan Umum</title>
 
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png">
 
@@ -56,10 +56,10 @@
 
             <div class="h-20 flex items-center justify-between px-4 border-b border-slate-800 bg-slate-900">
                 <div class="flex items-center space-x-3 overflow-hidden" x-show="sidebarOpen" x-transition.opacity>
-                    <img src="/images/logo.png" alt="Monitrac Logo" class="w-10 h-10 object-contain drop-shadow-lg">
+                    <img src="/images/logo.png" alt="UIN Antasari Logo" class="w-10 h-10 object-contain drop-shadow-lg">
                     <div class="flex flex-col">
-                        <span class="font-bold text-lg tracking-wide text-teal-400">MONITRAC</span>
-                        <span class="text-[10px] text-slate-400 uppercase tracking-wider leading-none">MONITORING & TRACKING ACCESS POINT</span>
+                        <span class="font-bold text-lg tracking-wide text-teal-400">MAHARAGU</span>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider leading-none">MONITORING AP & HANDLING RANGKAIAN GANGGUAN UMUM</span>
                     </div>
                 </div>
 
@@ -213,7 +213,7 @@
 
                 <div>
                     <h1 class="text-2xl font-bold text-slate-800 tracking-tight">@yield('header', 'Dashboard')</h1>
-                    <p class="text-xs text-slate-500 mt-1">@yield('subheader', 'Monitoring & Tracking Access Point')</p>
+                    <p class="text-xs text-slate-500 mt-1">@yield('subheader', 'Monitoring Access Point & Handling Rangkaian Gangguan Umum')</p>
                 </div>
 
                 <div class="flex items-center space-x-4">

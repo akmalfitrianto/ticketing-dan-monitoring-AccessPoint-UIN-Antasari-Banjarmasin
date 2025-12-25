@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Monitoring & Ticketing System</title>
+    <title>Login - Monitoring Access Point & Handling Rangkaian Gangguan Umum</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png">
     <style>
@@ -27,7 +27,7 @@
                     <img src="/images/logo.png" alt="UIN Logo"
                         class="w-20 h-20 mx-auto mb-4 object-contain drop-shadow-md">
                     <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Selamat Datang</h1>
-                    <p class="text-gray-500 mt-2 text-sm">Masuk untuk mengakses Monitoring & Tracking Access Point</p>
+                    <p class="text-gray-500 mt-2 text-sm">Masuk untuk mengakses MAHARAGU</p>
                 </div>
 
                 @if ($errors->any())
@@ -95,7 +95,7 @@
                 </form>
 
                 <p class="mt-8 text-center text-xs text-gray-400">
-                    &copy; {{ date('Y') }} UTIPD UIN Antasari Banjarmasin. <br>System Monitoring & Ticketing.
+                    &copy; {{ date('Y') }} UTIPD UIN Antasari Banjarmasin. <br>MAHARAGU.
                 </p>
             </div>
         </div>
