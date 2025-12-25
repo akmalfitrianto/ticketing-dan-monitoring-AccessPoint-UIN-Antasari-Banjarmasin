@@ -60,7 +60,7 @@ Ikuti langkah-langkah berikut untuk menjalankan project di komputer lokal:
 
 1.  **Clone Repository**
     ```bash
-    git clone [https://github.com/akmalfitrianto/MAHARAGU](https://github.com/akmalfitrianto/MAHARAGU)
+    git clone https://github.com/akmalfitrianto/MAHARAGU.git
     cd MAHARAGU
     ```
 
